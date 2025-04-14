@@ -8,6 +8,7 @@
 #include <map>
 #include <cpprest/http_listener.h>
 #include <cpprest/json.h>
+#include <mutex>
 
 using namespace std;
 using namespace web;
@@ -22,6 +23,7 @@ class BankingSystem {
         vector<Transaction> transactions;
         map<string, Account> accounts;
         http_listener listener;
+        mutable std::mutex dataMutex;
     
     public:
         BankingSystem() : listener("http://localhost:80/api/sheba") {
@@ -52,6 +54,8 @@ class BankingSystem {
             request
                 .extract_json()
                 .then([this, request](json::value body) {
+                    {
+                    std::lock_guard<std::mutex> lock(dataMutex);
                     try {
                         // استخراج داده‌های درخواست
                         long long amount = body["price"].as_number().to_int64();
@@ -68,7 +72,6 @@ class BankingSystem {
                             request.reply(status_codes::BadRequest, response);
                             return;
                         }
-    
                         // بررسی وجود حساب مبدا و مقصد
                         if (accounts.find(fromSheba) == accounts.end()) {
                             json::value response;
@@ -113,7 +116,11 @@ class BankingSystem {
                         
                         // ایجاد تراکنش
                         Transaction trans(fromSheba, toSheba, amount, note);
-                        transactions.push_back(trans);
+                        {
+                            std::lock_guard<std::mutex> lock(dataMutex);
+                            transactions.push_back(trans);
+                        }
+                        
     
                         // پاسخ موفقیت‌آمیز
                         json::value response;
@@ -136,21 +143,27 @@ class BankingSystem {
                         response["code"] = json::value("INVALID_REQUEST");
                         request.reply(status_codes::BadRequest, response);
                     }
+                    }
                 })
                 .wait();
         }
     
         // هندلر GET برای دریافت لیست درخواست‌ها
         void handle_get(http_request request) {
-            // مرتب‌سازی بر اساس زمان ایجاد (قدیمی‌ترین اول)
-            sort(transactions.begin(), transactions.end(), 
-                 [](const Transaction& a, const Transaction& b) { 
-                     return a.createdAt < b.createdAt; 
-                 });
+            {
+                std::lock_guard<std::mutex> lock(dataMutex);
+                            // مرتب‌سازی بر اساس زمان ایجاد (قدیمی‌ترین اول)
+                sort(transactions.begin(), transactions.end(), 
+                    [](const Transaction& a, const Transaction& b) { 
+                        return a.createdAt < b.createdAt; 
+                });
+            }
     
             json::value response;
             json::value requests_array = json::value::array();
-    
+            
+            {
+            std::lock_guard<std::mutex> lock(dataMutex);
             for (size_t i = 0; i < transactions.size(); ++i) {
                 const auto& t = transactions[i];
                 
@@ -163,6 +176,7 @@ class BankingSystem {
                 request_obj["createdAt"] = json::value(t.createdAt);
                 
                 requests_array[i] = request_obj;
+            }
             }
     
             response["requests"] = requests_array;
@@ -186,6 +200,8 @@ class BankingSystem {
             request
                 .extract_json()
                 .then([this, request, requestId](json::value body) {
+                    {
+                    std::lock_guard<std::mutex> lock(dataMutex);
                     try {
                         string status = body["status"].as_string();
                         string note = body["note"].as_string();
@@ -283,6 +299,7 @@ class BankingSystem {
                         response["message"] = json::value("Invalid request format");
                         response["code"] = json::value("INVALID_REQUEST");
                         request.reply(status_codes::BadRequest, response);
+                    }
                     }
                 })
                 .wait();
