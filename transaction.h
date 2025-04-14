@@ -41,7 +41,7 @@ class Transaction {
         }
     
         string generateId() {
-            static int counter = 0;
+            static std::atomic<int> counter{0};
             return "req-" + to_string(++counter) + "-" + to_string(time(0));
         }
     };
