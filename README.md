@@ -73,18 +73,17 @@ Updates status of a transfer (confirm or cancel).
 
 ---
 
-## ⚙️ Build Instructions (macOS)
+## ⚙️ Build Instructions 
 
 ### Prerequisites
 
-- macOS with `brew` installed
 - C++17-compatible compiler (e.g., `clang++`)
 - [CMake](https://cmake.org/) >= 3.10
-- [`cpprestsdk`](https://github.com/microsoft/cpprestsdk) (via vcpkg or brew)
+- [`cpprestsdk`](https://github.com/microsoft/cpprestsdk)
 
 ### Install dependencies
 
-You can install `cpprestsdk` with **vcpkg**:
+#### macOS
 
 ```bash
 brew install vcpkg
@@ -95,6 +94,34 @@ Or with **Homebrew** (recommended on macOS):
 
 ```bash
 brew install cpprestsdk
+```
+
+#### Linux
+
+```bash
+sudo apt update
+sudo apt install -y cmake g++ libboost-all-dev libssl-dev libcpprest-dev
+```
+
+#### Windows
+
+Windows (Visual Studio)
+Visual Studio 2019 or later with:
+C++ development tools
+CMake
+Install vcpkg:
+
+```bash
+git clone https://github.com/microsoft/vcpkg.git
+.\vcpkg\bootstrap-vcpkg.bat
+.\vcpkg\vcpkg install cpprestsdk
+```
+
+Use CMake with the vcpkg toolchain file:
+
+```bash
+cmake -DCMAKE_TOOLCHAIN_FILE=[vcpkg_root]/scripts/buildsystems/vcpkg.cmake -B build -S .
+cmake --build build
 ```
 
 ### Build with CMake
