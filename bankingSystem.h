@@ -116,10 +116,7 @@ class BankingSystem {
                         
                         // ایجاد تراکنش
                         Transaction trans(fromSheba, toSheba, amount, note);
-                        {
-                            std::lock_guard<std::mutex> lock(dataMutex);
-                            transactions.push_back(trans);
-                        }
+                        transactions.push_back(trans);
                         
     
                         // پاسخ موفقیت‌آمیز
@@ -151,19 +148,16 @@ class BankingSystem {
         // هندلر GET برای دریافت لیست درخواست‌ها
         void handle_get(http_request request) {
             {
-                std::lock_guard<std::mutex> lock(dataMutex);
+            std::lock_guard<std::mutex> lock(dataMutex);
                             // مرتب‌سازی بر اساس زمان ایجاد (قدیمی‌ترین اول)
                 sort(transactions.begin(), transactions.end(), 
                     [](const Transaction& a, const Transaction& b) { 
                         return a.createdAt < b.createdAt; 
                 });
-            }
     
             json::value response;
             json::value requests_array = json::value::array();
             
-            {
-            std::lock_guard<std::mutex> lock(dataMutex);
             for (size_t i = 0; i < transactions.size(); ++i) {
                 const auto& t = transactions[i];
                 
@@ -177,10 +171,10 @@ class BankingSystem {
                 
                 requests_array[i] = request_obj;
             }
-            }
     
             response["requests"] = requests_array;
             request.reply(status_codes::OK, response);
+        }
         }
     
         // هندلر PUT برای تایید یا رد درخواست
