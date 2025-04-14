@@ -17,7 +17,6 @@ using namespace web::http::experimental::listener;
 
 #define SHEBA_LENGTH 26
 
-// سیستم بانکی
 class BankingSystem {
     private:
         vector<Transaction> transactions;
@@ -27,11 +26,11 @@ class BankingSystem {
     
     public:
         BankingSystem() : listener("http://localhost:80/api/sheba") {
-            // ایجاد چند حساب نمونه برای تست
+            // creating some accounts for test
             accounts["IR123456789012345678901234"] = Account("IR123456789012345678901234", 1000000000);
             accounts["IR987654321098765432109876"] = Account("IR987654321098765432109876", 500000000);
             
-            // تنظیم هندلرهای API
+            // set api handlers
             listener.support(methods::POST, std::bind(&BankingSystem::handle_post, this, std::placeholders::_1));
             listener.support(methods::GET, std::bind(&BankingSystem::handle_get, this, std::placeholders::_1));
             listener.support(methods::PUT, std::bind(&BankingSystem::handle_put, this, std::placeholders::_1));
@@ -49,7 +48,6 @@ class BankingSystem {
         }
     
     private:
-        // هندلر POST برای ایجاد درخواست انتقال
         void handle_post(http_request request) {
             request
                 .extract_json()
@@ -57,13 +55,13 @@ class BankingSystem {
                     {
                     std::lock_guard<std::mutex> lock(dataMutex);
                     try {
-                        // استخراج داده‌های درخواست
+                        // extract request data
                         long long amount = body["price"].as_number().to_int64();
                         string fromSheba = body["fromShebaNumber"].as_string();
                         string toSheba = body["ToShebaNumber"].as_string();
                         string note = body["note"].as_string();
     
-                        // اعتبارسنجی شماره شبا
+                        // sheba validation
                         if (fromSheba.length() != SHEBA_LENGTH || toSheba.length() != SHEBA_LENGTH || 
                             fromSheba.substr(0, 2) != "IR" || toSheba.substr(0, 2) != "IR") {
                             json::value response;
@@ -72,7 +70,7 @@ class BankingSystem {
                             request.reply(status_codes::BadRequest, response);
                             return;
                         }
-                        // بررسی وجود حساب مبدا و مقصد
+                        // checking existance of accounts
                         if (accounts.find(fromSheba) == accounts.end()) {
                             json::value response;
                             response["message"] = json::value("Source account not found");
@@ -90,7 +88,8 @@ class BankingSystem {
                         }
                         std::cout << "source account befor transaction : \n" << "sheba number = " << fromSheba << std::endl << 
                         "account balance = " << accounts[fromSheba].balance << endl;
-                        // بررسی موجودی کافی
+
+                        // checking balance
                         if (!accounts[fromSheba].canReserve(amount)) {
                             json::value response;
                             response["message"] = json::value("Insufficient balance");
@@ -99,7 +98,7 @@ class BankingSystem {
                             return;
                         }
     
-                        // رزرو مبلغ
+                        // reserving amount
                         if (!accounts[fromSheba].reserve(amount)) {
                             json::value response;
                             response["message"] = json::value("Reservation failed");
@@ -114,12 +113,12 @@ class BankingSystem {
                         std::cout << "destination account : \n" << "sheba number = " << toSheba << endl << 
                         "account balance = " << accounts[toSheba].balance << endl;
                         
-                        // ایجاد تراکنش
+                        // creating transaction
                         Transaction trans(fromSheba, toSheba, amount, note);
                         transactions.push_back(trans);
                         
     
-                        // پاسخ موفقیت‌آمیز
+                        // success response
                         json::value response;
                         response["message"] = json::value("Request is saved successfully and is in pending status");
                         
@@ -145,15 +144,14 @@ class BankingSystem {
                 .wait();
         }
     
-        // هندلر GET برای دریافت لیست درخواست‌ها
         void handle_get(http_request request) {
             {
             std::lock_guard<std::mutex> lock(dataMutex);
-                            // مرتب‌سازی بر اساس زمان ایجاد (قدیمی‌ترین اول)
-                sort(transactions.begin(), transactions.end(), 
-                    [](const Transaction& a, const Transaction& b) { 
-                        return a.createdAt < b.createdAt; 
-                });
+            // sorting based on time (oldest is first)
+            sort(transactions.begin(), transactions.end(), 
+                [](const Transaction& a, const Transaction& b) { 
+                    return a.createdAt < b.createdAt; 
+            });
     
             json::value response;
             json::value requests_array = json::value::array();
@@ -177,9 +175,8 @@ class BankingSystem {
         }
         }
     
-        // هندلر PUT برای تایید یا رد درخواست
         void handle_put(http_request request) {
-            // استخراج request-id از URL
+            // extract request-id from URL
             auto path = uri::split_path(request.relative_uri().to_string());
             if (path.empty()) {
                 json::value response;
@@ -220,7 +217,7 @@ class BankingSystem {
                         }
     
                         if (status == "confirmed") {
-                            // تایید تراکنش
+                            // confirming transaction
                             if (accounts[it->fromSheba].confirmReserved(it->amount)) {
                                 accounts[it->toSheba].balance += it->amount;
                                 it->status = "confirmed";
@@ -252,7 +249,7 @@ class BankingSystem {
                                 request.reply(status_codes::InternalError, response);
                             }
                         } else if (status == "canceled") {
-                            // رد تراکنش
+                            // canceling transaction
                             if (accounts[it->fromSheba].cancelReserved(it->amount)) {
                                 it->status = "canceled";
                                 it->note = note;

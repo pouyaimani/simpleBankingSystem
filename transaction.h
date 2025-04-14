@@ -4,7 +4,6 @@
 #include <sstream>
 #include <iomanip>
 
-// کلاس تراکنش
 using namespace std;
 
 class Transaction {

@@ -6,12 +6,11 @@
 
 using namespace std;
 
-// کلاس حساب کاربری
 class Account {
     public:
         string sheba;
         long long balance;
-        long long reserved; // مبلغ رزرو شده برای تراکنش‌های در حال انتظار
+        long long reserved;
     
         Account(string sh, long long bal) : sheba(sh), balance(bal), reserved(0) {}
         Account() = default;
